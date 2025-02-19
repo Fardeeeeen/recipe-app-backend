@@ -90,18 +90,18 @@ router.get('/search', async (req, res) => {
   let ingredientQuery = query || null;
 
  // --- Handling Multiple Ingredients ---
-let ingredientsArray = [];
-if (ingredientQuery) {
-  if (ingredientQuery.includes(',')) {
-    ingredientsArray = ingredientQuery.split(',')
-      .map(item => item.trim())
-      .filter(item => item);
-  } else {
-    ingredientsArray = ingredientQuery.split(/\s+/)
-      .filter(item => item);
-  }
-}
-console.log("🔍 Ingredients Array:", ingredientsArray);
+ let ingredientsArray = [];
+ if (ingredientQuery) {
+   if (ingredientQuery.includes(',')) {
+     ingredientsArray = ingredientQuery.split(',')
+       .map(item => item.trim())
+       // Remove any filler words that might have slipped through
+       .filter(item => item && !fillerWords.includes(item.toLowerCase()));
+   } else {
+     ingredientsArray = ingredientQuery.split(/\s+/)
+       .filter(item => item && !fillerWords.includes(item.toLowerCase()));
+   }
+ }
 
 // Check if there are no ingredients after processing
 if (ingredientsArray.length === 0) {

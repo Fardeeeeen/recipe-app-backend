@@ -309,8 +309,10 @@ export const fillerWords = [
     "among", "amongst", "among these", "along", "along with", "alongside", "behind", "around", "about",
     "beyond", "close to", "close by", "close together", "close together with", "close together with","made",
     "made with", "made from", "made of", "made by", "made in", "made on", "made at", "made for", "made to",
-    "made as", "made like", "made unlike", "made unlike", "made unlike", "made unlike", "made unlike",
-  
+    "made as", "made like", "made unlike", "made unlike", "made unlike", "made unlike", "made unlike","with",
+    "with that", "with this", "with these", "with those", "with them", "with us", "with me", "with you",
+    
+
  
     "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours",
     "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers",
