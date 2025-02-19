@@ -337,37 +337,41 @@ router.post('/save-search', async (req, res) => {
   }
 });
 
-// 🟢 Get Search History
 router.get('/get-search-history', async (req, res) => {
   let { user_id } = req.query;
-
-  console.log("User ID from query:", user_id);
 
   if (!user_id) {
       return res.status(400).json({ message: "User ID is required" });
   }
 
-  user_id = parseInt(user_id);
-
-  if (isNaN(user_id)) {
-      return res.status(400).json({ message: "Invalid user ID format" });
-  }
-
   try {
       let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
-
-      console.log("Database result:", result.rows);
 
       if (result.rows.length === 0) {
           return res.status(404).json({ message: "User not found" });
       }
 
-      res.json({ user_id, search_history: result.rows[0].search_history || [] });
+      let searchHistory = result.rows[0].search_history;
+
+      if (typeof searchHistory === "string") {
+          try {
+              searchHistory = JSON.parse(searchHistory);
+          } catch (error) {
+              searchHistory = []; 
+          }
+      }
+
+      if (typeof searchHistory === "object" && searchHistory.searches) {
+          searchHistory = searchHistory.searches; 
+      }
+
+      res.json({ user_id, search_history: searchHistory });
   } catch (error) {
       console.error("❌ Error fetching search history:", error);
       res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // 🟢 Save Favorite Recipe
 router.post('/save-favorite', async (req, res) => {
