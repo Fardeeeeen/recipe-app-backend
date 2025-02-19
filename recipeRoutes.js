@@ -305,12 +305,13 @@ try {
 router.post('/save-search', async (req, res) => {
   const { user_id, search_query } = req.body;
 
+  if (!user_id || !search_query) {
+      return res.status(400).json({ message: "User ID and search query are required" });
+  }
+
   try {
       // Fetch current search history
-      let userSearches = await db.query(
-          "SELECT search_history FROM users WHERE id = $1",
-          [user_id]
-      );
+      let userSearches = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
 
       let searches = userSearches.rows[0]?.search_history || [];
 
@@ -324,15 +325,10 @@ router.post('/save-search', async (req, res) => {
           searches.shift();
       }
 
-      console.log("🔍 Updated Search History:", searches); // Debugging log
+      console.log("🔍 Updated Search History:", searches);
 
-      // Run the UPDATE query and log affected rows
-      const updateResult = await db.query(
-          "UPDATE users SET search_history = $1 WHERE id = $2 RETURNING *",
-          [JSON.stringify(searches), user_id]
-      );
-
-      console.log("✅ UPDATE Query Result:", updateResult.rows); // Debugging log
+      // Save updated search history
+      await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
 
       res.json({ message: "Search history updated", searches });
   } catch (error) {
@@ -341,131 +337,118 @@ router.post('/save-search', async (req, res) => {
   }
 });
 
-//getting search history
+// 🟢 Get Search History
 router.get('/get-search-history', async (req, res) => {
   let { user_id } = req.query;
 
-  console.log("User ID from query:", user_id); // Log the user_id passed in the request
+  console.log("User ID from query:", user_id);
 
   if (!user_id) {
       return res.status(400).json({ message: "User ID is required" });
   }
 
-  user_id = parseInt(user_id); // Convert to an integer
+  user_id = parseInt(user_id);
 
   if (isNaN(user_id)) {
       return res.status(400).json({ message: "Invalid user ID format" });
   }
 
   try {
-      let result = await db.query(
-          "SELECT search_history FROM users WHERE id = $1",
-          [user_id]
-      );
+      let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
 
-      console.log("Database result:", result.rows); // Log the result of the query
+      console.log("Database result:", result.rows);
 
       if (result.rows.length === 0) {
           return res.status(404).json({ message: "User not found" });
       }
 
-      res.json({ user_id, search_history: result.rows[0].search_history });
+      res.json({ user_id, search_history: result.rows[0].search_history || [] });
   } catch (error) {
       console.error("❌ Error fetching search history:", error);
       res.status(500).json({ message: "Server error" });
   }
 });
 
-
-
-
 // 🟢 Save Favorite Recipe
 router.post('/save-favorite', async (req, res) => {
-    const { user_id, recipe_id } = req.body;
+  const { user_id, recipe_id } = req.body;
 
-    if (!user_id || !recipe_id) {
-        return res.status(400).json({ message: "User ID and Recipe ID are required" });
-    }
+  if (!user_id || !recipe_id) {
+      return res.status(400).json({ message: "User ID and Recipe ID are required" });
+  }
 
-    try {
-        const result = await db.query(
-            "UPDATE recipes SET is_favorite = TRUE, user_id = $1 WHERE id = $2 RETURNING *",
-            [user_id, recipe_id]
-        );
+  try {
+      // Insert favorite into the favorites table
+      const result = await db.query(
+          "INSERT INTO favorites (user_id, recipe_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *",
+          [user_id, recipe_id]
+      );
 
-        if (result.rowCount === 0) {
-            return res.status(404).json({ message: "Recipe not found or already favorited" });
-        }
+      if (result.rowCount === 0) {
+          return res.status(400).json({ message: "Recipe already favorited" });
+      }
 
-        console.log("✅ Updated Favorite Recipe:", result.rows[0]); 
-        res.json({ message: "Recipe saved to favorites!", updatedRecipe: result.rows[0] });
-    } catch (error) {
-        console.error("❌ Error saving favorite:", error);
-        res.status(500).json({ message: "Server error" });
-    }
+      console.log("✅ Recipe saved to favorites:", result.rows[0]);
+      res.json({ message: "Recipe saved to favorites!" });
+  } catch (error) {
+      console.error("❌ Error saving favorite:", error);
+      res.status(500).json({ message: "Server error" });
+  }
 });
 
 // 🟢 Get User's Favorite Recipes
 router.get('/favorites/:user_id', async (req, res) => {
-    const { user_id } = req.params;
-    try {
-        const result = await db.query(
-            "SELECT recipes.* FROM recipes JOIN favorites ON recipes.id = favorites.recipe_id WHERE favorites.user_id = $1",
-            [user_id]
-        );
-        res.json(result.rows);
-    } catch (error) {
-        console.error("Error fetching favorites:", error);
-        res.status(500).json({ message: "Server error" });
-    }
+  const { user_id } = req.params;
+  try {
+      const result = await db.query(
+          "SELECT recipes.* FROM recipes JOIN favorites ON recipes.id = favorites.recipe_id WHERE favorites.user_id = $1",
+          [user_id]
+      );
+      res.json(result.rows);
+  } catch (error) {
+      console.error("Error fetching favorites:", error);
+      res.status(500).json({ message: "Server error" });
+  }
 });
 
-// 🟢 Remove Favorite Recipe 
+// 🟢 Remove Favorite Recipe
 router.post('/remove-favorite', async (req, res) => {
-    const { user_id, recipe_id } = req.body;
+  const { user_id, recipe_id } = req.body;
 
-    if (!user_id || !recipe_id) {
-        return res.status(400).json({ message: "User ID and Recipe ID are required" });
-    }
+  if (!user_id || !recipe_id) {
+      return res.status(400).json({ message: "User ID and Recipe ID are required" });
+  }
 
-    try {
-        // Check if the recipe is actually favorited
-        const checkFavorite = await db.query(
-            "SELECT * FROM recipes WHERE user_id = $1 AND id = $2 AND is_favorite = TRUE",
-            [user_id, recipe_id]
-        );
+  try {
+      const result = await db.query(
+          "DELETE FROM favorites WHERE user_id = $1 AND recipe_id = $2 RETURNING *",
+          [user_id, recipe_id]
+      );
 
-        if (checkFavorite.rows.length === 0) {
-            return res.status(404).json({ message: "Recipe not found in favorites" });
-        }
+      if (result.rowCount === 0) {
+          return res.status(404).json({ message: "Recipe not found in favorites" });
+      }
 
-        // Update the recipe to remove it from favorites
-        const result = await db.query(
-            "UPDATE recipes SET is_favorite = FALSE WHERE user_id = $1 AND id = $2 RETURNING *",
-            [user_id, recipe_id]
-        );
-
-        //console.log("✅ Removed Favorite Recipe:", result.rows[0]); 
-        res.json({ message: "Recipe removed from favorites!" });
-    } catch (error) {
-        console.error("❌ Error removing favorite:", error);
-        res.status(500).json({ message: "Server error" });
-    }
+      res.json({ message: "Recipe removed from favorites!" });
+  } catch (error) {
+      console.error("❌ Error removing favorite:", error);
+      res.status(500).json({ message: "Server error" });
+  }
 });
 
-// 🟢 Get Recipe by ID 
-router.get('/:id', async (req, res) => {  
-    const { id } = req.params;
-    try {
-        const result = await db.query("SELECT * FROM recipes WHERE id = $1", [id]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ message: "Recipe not found" });
-        }
-        res.json(result.rows[0]);
-    } catch (error) {
-        console.error("Error fetching recipe:", error);
-        res.status(500).json({ message: "Server error" });
-    }
+// 🟢 Get Recipe by ID
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+      const result = await db.query("SELECT * FROM recipes WHERE id = $1", [id]);
+      if (result.rows.length === 0) {
+          return res.status(404).json({ message: "Recipe not found" });
+      }
+      res.json(result.rows[0]);
+  } catch (error) {
+      console.error("Error fetching recipe:", error);
+      res.status(500).json({ message: "Server error" });
+  }
 });
 
 export default router;
