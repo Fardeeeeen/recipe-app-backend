@@ -93,110 +93,123 @@ router.get('/search', async (req, res) => {
 let ingredientsArray = [];
 if (ingredientQuery) {
   if (ingredientQuery.includes(',')) {
-    ingredientsArray = ingredientQuery.split(',').map(item => item.trim()).filter(item => item);
+    ingredientsArray = ingredientQuery.split(',')
+      .map(item => item.trim())
+      .filter(item => item);
   } else {
-    ingredientsArray = ingredientQuery.split(/\s+/).filter(item => item);
+    ingredientsArray = ingredientQuery.split(/\s+/)
+      .filter(item => item);
   }
 }
 console.log("🔍 Ingredients Array:", ingredientsArray);
 
+// Check if there are no ingredients after processing
+if (ingredientsArray.length === 0) {
+  try {
+    const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 5");
+    return res.json({
+      message: "No ingredients provided, showing random recipes instead.",
+      recipes: randomResult.rows
+    });
+  } catch (error) {
+    console.error("❌ Error fetching random recipes:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
 try {
   // Try exact match (all ingredients together)
-let sqlAll = "SELECT * FROM recipes WHERE ";
-let valuesAll = [];
-ingredientsArray.forEach((ing, index) => {
-  if (index > 0) sqlAll += " AND ";
+  let sqlAll = "SELECT * FROM recipes WHERE ";
+  let valuesAll = [];
+  ingredientsArray.forEach((ing, index) => {
+    if (index > 0) sqlAll += " AND ";
+    sqlAll += `ingredients ILIKE $${index + 1}`;
+    valuesAll.push(`%${ing}%`);
+  });
+  
+  if (excludeEgg) {
+    sqlAll += " AND ingredients NOT ILIKE '%egg%'";
+  }
+  //console.log("🔍 SQL Query (Exact Match):", sqlAll, valuesAll);
+  let ingredientResult = await db.query(sqlAll, valuesAll);
 
-  sqlAll += `ingredients ILIKE $${index + 1}`;
-  valuesAll.push(`%${ing}%`);
-});
-
-if (excludeEgg) {
-  sqlAll += " AND ingredients NOT ILIKE '%egg%'";
-}
-//console.log("🔍 SQL Query (Exact Match):", sqlAll, valuesAll);
-let ingredientResult = await db.query(sqlAll, valuesAll);
-
-// Check combinations of ingredients if no exact match
-if (ingredientResult.rows.length === 0) {
-  //console.log("⚠️ No exact recipes found for the combination of ingredients.");
-
-  // finding recipes with at least two matching ingredients together
-  let combinationQueries = [];
-  for (let i = 0; i < ingredientsArray.length; i++) {
-    for (let j = i + 1; j < ingredientsArray.length; j++) {
-      let sqlPair = "SELECT * FROM recipes WHERE ingredients ILIKE $1 AND ingredients ILIKE $2";
-      let valuesPair = [`%${ingredientsArray[i]}%`, `%${ingredientsArray[j]}%`];
-      if (excludeEgg) {
-        sqlPair += " AND ingredients NOT ILIKE '%egg%'";
+  // Check combinations of ingredients if no exact match
+  if (ingredientResult.rows.length === 0) {
+    // finding recipes with at least two matching ingredients together
+    let combinationQueries = [];
+    for (let i = 0; i < ingredientsArray.length; i++) {
+      for (let j = i + 1; j < ingredientsArray.length; j++) {
+        let sqlPair = "SELECT * FROM recipes WHERE ingredients ILIKE $1 AND ingredients ILIKE $2";
+        let valuesPair = [`%${ingredientsArray[i]}%`, `%${ingredientsArray[j]}%`];
+        if (excludeEgg) {
+          sqlPair += " AND ingredients NOT ILIKE '%egg%'";
+        }
+        //console.log("🔍 SQL Query (Pair):", sqlPair, valuesPair);
+        combinationQueries.push(db.query(sqlPair, valuesPair));
       }
-      //console.log("🔍 SQL Query (Pair):", sqlPair, valuesPair);
-      combinationQueries.push(db.query(sqlPair, valuesPair));
     }
-  }
-
-  // Execute all two-ingredient queries in parallel
-  let combinationResults = await Promise.all(combinationQueries);
-  let combinationMatches = combinationResults.flatMap(result => result.rows);
-
-  // If combinations found, return those results
-  if (combinationMatches.length > 0) {
-    return res.json({
-      message: "No exact match found for all ingredients, but recipes with some combinations exist.",
-      partialSolution: "Here are recipes that match combinations of your requested ingredients:",
-      recipes: combinationMatches
+    
+    // Execute all two-ingredient queries in parallel
+    let combinationResults = await Promise.all(combinationQueries);
+    let combinationMatches = combinationResults.flatMap(result => result.rows);
+    
+    // If combinations found, return those results
+    if (combinationMatches.length > 0) {
+      return res.json({
+        message: "No exact match found for all ingredients, but recipes with some combinations exist.",
+        partialSolution: "Here are recipes that match combinations of your requested ingredients:",
+        recipes: combinationMatches
+      });
+    }
+    
+    console.log("⚠️ No combinations found. Proceeding to individual ingredient searches...");
+    
+    // Fetching individual ingredient matches
+    let singleQueries = ingredientsArray.map(ing => {
+      let sql = "SELECT * FROM recipes WHERE ingredients ILIKE $1";
+      if (excludeEgg) {
+        sql += " AND ingredients NOT ILIKE '%egg%'";
+      }
+      return db.query(sql, [`%${ing}%`]);
     });
-  }
-
-  console.log("⚠️ No combinations found. Proceeding to individual ingredient searches...");
-
-  // fetching individual ingredient matches
-  let singleQueries = ingredientsArray.map(ing => {
-    let sql = "SELECT * FROM recipes WHERE ingredients ILIKE $1";
-    if (excludeEgg) {
-      sql += " AND ingredients NOT ILIKE '%egg%'";
+    
+    // Execute all individual ingredient queries in parallel
+    let singleResults = await Promise.all(singleQueries);
+    let individualMatches = singleResults.flatMap(result => result.rows);
+    
+    // If individual matches found, return those results
+    if (individualMatches.length > 0) {
+      return res.json({
+        message: "No exact match found for the combination of ingredients.",
+        partialSolution: "Here are some recipes that match individual ingredients:",
+        recipes: individualMatches
+      });
     }
-    return db.query(sql, [`%${ing}%`]);
-  });
-
-  // Execute all individual ingredient queries in parallel
-  let singleResults = await Promise.all(singleQueries);
-  let individualMatches = singleResults.flatMap(result => result.rows);
-
- // If individual matches found, return those results
-if (individualMatches.length > 0) {
-  return res.json({
-    message: "No exact match found for the combination of ingredients.",
-    partialSolution: "Here are some recipes that match individual ingredients:",
-    recipes: individualMatches
-  });
-}
-
-// If no matches at all, query random recipes instead of returning an empty list
-try {
-  const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 5");
-  return res.json({
-    message: "No recipes found for the given ingredients, showing random recipes instead.",
-    recipes: randomResult.rows
-  });
-} catch (error) {
-  console.error("❌ Error fetching random recipes:", error);
-  return res.status(500).json({ message: "Server error" });
-}
-}
-
-console.log("✅ Found recipes with ingredient(s):", ingredientResult.rows.length);
-
-
+    
+    // If no matches at all, query random recipes instead of returning an empty list
+    try {
+      const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 5");
+      return res.json({
+        message: "No recipes found for the given ingredients, showing random recipes instead.",
+        recipes: randomResult.rows
+      });
+    } catch (error) {
+      console.error("❌ Error fetching random recipes:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+  
+  console.log("✅ Found recipes with ingredient(s):", ingredientResult.rows.length);
+  
   // Hierarchical Search: Filter recipes based on complexity and cooking time
   let finalResult = [];
   let complexityFiltered = [];
   let timeFiltered = [];
   let ingredientOnlyFiltered = [];
   let output = {};
-
+  
   const ingredientRecipes = ingredientResult.rows;
-
+  
   // Filter by complexity
   if (extractedComplexity) {
     complexityFiltered = ingredientRecipes.filter(recipe =>
@@ -281,12 +294,13 @@ console.log("✅ Found recipes with ingredient(s):", ingredientResult.rows.lengt
     };
     return res.json(output);
   }
-
+  
 } catch (error) {
   console.error("❌ Error fetching recipes:", error);
   return res.status(500).json({ message: "Server error" });
 }
 });
+
 
 // 🟢 Save Search History
 router.post('/save-search', async (req, res) => {
