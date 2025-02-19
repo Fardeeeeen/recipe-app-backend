@@ -106,7 +106,7 @@ console.log("🔍 Ingredients Array:", ingredientsArray);
 // Check if there are no ingredients after processing
 if (ingredientsArray.length === 0) {
   try {
-    const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 5");
+    const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 18");
     return res.json({
       message: "No ingredients provided, showing random recipes instead.",
       recipes: randomResult.rows
