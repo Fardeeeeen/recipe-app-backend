@@ -163,20 +163,26 @@ if (ingredientResult.rows.length === 0) {
   let singleResults = await Promise.all(singleQueries);
   let individualMatches = singleResults.flatMap(result => result.rows);
 
-  // If individual matches found, return those results
-  if (individualMatches.length > 0) {
-    return res.json({
-      message: "No exact match found for the combination of ingredients.",
-      partialSolution: "Here are some recipes that match individual ingredients:",
-      recipes: individualMatches
-    });
-  }
-
-  // If no matches at all, return a final fallback message
+ // If individual matches found, return those results
+if (individualMatches.length > 0) {
   return res.json({
-    message: "No recipes found for the given ingredients, either individually or in combination.",
-    recipes: []
+    message: "No exact match found for the combination of ingredients.",
+    partialSolution: "Here are some recipes that match individual ingredients:",
+    recipes: individualMatches
   });
+}
+
+// If no matches at all, query random recipes instead of returning an empty list
+try {
+  const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 5");
+  return res.json({
+    message: "No recipes found for the given ingredients, showing random recipes instead.",
+    recipes: randomResult.rows
+  });
+} catch (error) {
+  console.error("❌ Error fetching random recipes:", error);
+  return res.status(500).json({ message: "Server error" });
+}
 }
 
 console.log("✅ Found recipes with ingredient(s):", ingredientResult.rows.length);
