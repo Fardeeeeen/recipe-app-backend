@@ -144,7 +144,6 @@ try {
         if (excludeEgg) {
           sqlPair += " AND ingredients NOT ILIKE '%egg%'";
         }
-        //console.log("🔍 SQL Query (Pair):", sqlPair, valuesPair);
         combinationQueries.push(db.query(sqlPair, valuesPair));
       }
     }
@@ -188,7 +187,7 @@ try {
     
     // If no matches at all, query random recipes instead of returning an empty list
     try {
-      const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 5");
+      const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 15");
       return res.json({
         message: "No recipes found for the given ingredients, showing random recipes instead.",
         recipes: randomResult.rows
