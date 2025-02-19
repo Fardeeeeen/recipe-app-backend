@@ -343,6 +343,11 @@ router.get('/get-search-history', async (req, res) => {
   if (!user_id) {
       return res.status(400).json({ message: "User ID is required" });
   }
+  
+  user_id = parseInt(user_id);
+  if (isNaN(user_id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+  }
 
   try {
       let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
@@ -353,16 +358,21 @@ router.get('/get-search-history', async (req, res) => {
 
       let searchHistory = result.rows[0].search_history;
 
-      if (typeof searchHistory === "string") {
+      // ✅ Ensure searchHistory is always an array
+      if (!searchHistory) {
+          searchHistory = [];
+      } else if (typeof searchHistory === "string") {
           try {
               searchHistory = JSON.parse(searchHistory);
           } catch (error) {
+              console.error("❌ Error parsing search history:", error);
               searchHistory = []; 
           }
       }
 
+      // ✅ Extract `searches` key if search history is stored as an object
       if (typeof searchHistory === "object" && searchHistory.searches) {
-          searchHistory = searchHistory.searches; 
+          searchHistory = searchHistory.searches;
       }
 
       res.json({ user_id, search_history: searchHistory });
@@ -371,6 +381,7 @@ router.get('/get-search-history', async (req, res) => {
       res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 // 🟢 Save Favorite Recipe
