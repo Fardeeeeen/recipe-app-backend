@@ -187,7 +187,7 @@ try {
     
     // If no matches at all, query random recipes instead of returning an empty list
     try {
-      const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 15");
+      const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 18");
       return res.json({
         message: "No recipes found for the given ingredients, showing random recipes instead.",
         recipes: randomResult.rows
