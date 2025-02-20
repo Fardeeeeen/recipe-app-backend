@@ -34,7 +34,10 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ email }, "secret_key", { expiresIn: '1h' });
-    res.json({ token });
+    // Include user_id in the response
+    res.json({ token, user_id: user.rows[0].id });
 });
 
 export default router;
+
+
