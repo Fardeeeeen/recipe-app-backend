@@ -306,38 +306,53 @@ router.post('/save-search', async (req, res) => {
   const { user_id, search_query } = req.body;
 
   if (!user_id || !search_query) {
-      return res.status(400).json({ message: "User ID and search query are required" });
+    return res.status(400).json({ message: "User ID and search query are required" });
   }
 
-    try {
-      // ✅ Check if user exists first
-      const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
-      if (userExists.rows.length === 0) {
-          return res.status(404).json({ message: "User not found" });
+  try {
+    // ✅ Check if user exists first
+    const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
+    if (userExists.rows.length === 0) {
+      console.log("User not found for user_id:", user_id);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Fetch current search history
+    let userSearches = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
+    let searches = userSearches.rows[0]?.search_history || [];
+    console.log("Raw search history from DB:", searches);
+
+    // If searchHistory is a string, parse it into an array.
+    if (typeof searches === "string") {
+      try {
+        searches = JSON.parse(searches);
+        console.log("Parsed search history:", searches);
+      } catch (err) {
+        console.error("Error parsing existing search history:", err);
+        searches = [];
       }
-      // Fetch current search history
-      let userSearches = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
-      let searches = userSearches.rows[0]?.search_history || [];
+    }
 
-      if (!Array.isArray(searches)) {
-          searches = [];
-      }
+    // Ensure searches is an array.
+    if (!Array.isArray(searches)) {
+      searches = [];
+    }
 
-      // Keep only the last 3 searches
-      searches.push(search_query);
-      if (searches.length > 3) {
-          searches.shift();
-      }
+    // Keep only the last 3 searches
+    searches.push(search_query);
+    if (searches.length > 3) {
+      searches.shift();
+    }
+    
+    console.log("🔍 Updated Search History:", searches);
 
-      console.log("🔍 Updated Search History:", searches);
+    // Save updated search history
+    await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
 
-      // Save updated search history
-      await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
-
-      res.json({ message: "Search history updated", searches });
+    res.json({ message: "Search history updated", searches });
   } catch (error) {
-      console.error("❌ Error saving search history:", error);
-      res.status(500).json({ message: "Server error" });
+    console.error("❌ Error saving search history:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -345,40 +360,40 @@ router.get('/get-search-history', async (req, res) => {
   let { user_id } = req.query;
 
   if (!user_id) {
-      return res.status(400).json({ message: "User ID is required" });
+    return res.status(400).json({ message: "User ID is required" });
   }
 
   user_id = parseInt(user_id);
   if (isNaN(user_id)) {
-      return res.status(400).json({ message: "Invalid user ID format" });
+    return res.status(400).json({ message: "Invalid user ID format" });
   }
 
   try {
-      // Check if the user exists first.
-      const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
-      if (userExists.rows.length === 0) {
-          return res.status(404).json({ message: "User not found" });
+    // Check if the user exists first.
+    const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
+    if (userExists.rows.length === 0) {
+      console.log("User not found for user_id:", user_id);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
+    let searchHistory = result.rows.length > 0 ? result.rows[0].search_history : [];
+
+    // If searchHistory is a string, attempt to parse it.
+    if (typeof searchHistory === "string") {
+      try {
+        searchHistory = JSON.parse(searchHistory);
+      } catch (error) {
+        console.error("Error parsing search history:", error);
+        searchHistory = [];
       }
+    }
 
-      // Retrieve the search history.
-      let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
-      let searchHistory = result.rows.length > 0 ? result.rows[0].search_history : [];
-
-      // If searchHistory is a string, attempt to parse it.
-      if (typeof searchHistory === "string") {
-          try {
-              searchHistory = JSON.parse(searchHistory);
-          } catch (error) {
-              console.error("Error parsing search history:", error);
-              searchHistory = [];
-          }
-      }
-
-      console.log("Fetched search history for user_id:", user_id, ":", searchHistory);
-      res.json({ user_id, search_history: searchHistory });
+    console.log("Fetched search history for user_id:", user_id, ":", searchHistory);
+    res.json({ user_id, search_history: searchHistory });
   } catch (error) {
-      console.error("❌ Error fetching search history:", error);
-      res.status(500).json({ message: "Server error" });
+    console.error("❌ Error fetching search history:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
