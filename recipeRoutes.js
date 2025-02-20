@@ -304,13 +304,14 @@ try {
 // 🟢 Save Search History
 router.post('/save-search', async (req, res) => {
   const { user_id, search_query } = req.body;
-
+  console.log("Save search history request:", req.body);
+  
   if (!user_id || !search_query) {
     return res.status(400).json({ message: "User ID and search query are required" });
   }
 
   try {
-    // ✅ Check if user exists first
+    // Check if user exists first
     const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
     if (userExists.rows.length === 0) {
       console.log("User not found for user_id:", user_id);
@@ -322,7 +323,7 @@ router.post('/save-search', async (req, res) => {
     let searches = userSearches.rows[0]?.search_history || [];
     console.log("Raw search history from DB:", searches);
 
-    // If searchHistory is a string, parse it into an array.
+    // If searchHistory is a string, attempt to parse it.
     if (typeof searches === "string") {
       try {
         searches = JSON.parse(searches);
@@ -333,7 +334,6 @@ router.post('/save-search', async (req, res) => {
       }
     }
 
-    // Ensure searches is an array.
     if (!Array.isArray(searches)) {
       searches = [];
     }
@@ -343,10 +343,9 @@ router.post('/save-search', async (req, res) => {
     if (searches.length > 3) {
       searches.shift();
     }
-    
     console.log("🔍 Updated Search History:", searches);
 
-    // Save updated search history
+    // Save updated search history (stored as JSON string)
     await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
 
     res.json({ message: "Search history updated", searches });
@@ -356,20 +355,22 @@ router.post('/save-search', async (req, res) => {
   }
 });
 
+// GET Search History
 router.get('/get-search-history', async (req, res) => {
   let { user_id } = req.query;
-
+  console.log("GET search history called with user_id:", user_id);
+  
   if (!user_id) {
     return res.status(400).json({ message: "User ID is required" });
   }
-
+  
   user_id = parseInt(user_id);
   if (isNaN(user_id)) {
     return res.status(400).json({ message: "Invalid user ID format" });
   }
 
   try {
-    // Check if the user exists first.
+    // Check if the user exists
     const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
     if (userExists.rows.length === 0) {
       console.log("User not found for user_id:", user_id);
@@ -379,7 +380,7 @@ router.get('/get-search-history', async (req, res) => {
     let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
     let searchHistory = result.rows.length > 0 ? result.rows[0].search_history : [];
 
-    // If searchHistory is a string, attempt to parse it.
+    // If stored as a string, parse it
     if (typeof searchHistory === "string") {
       try {
         searchHistory = JSON.parse(searchHistory);
@@ -396,6 +397,7 @@ router.get('/get-search-history', async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 
