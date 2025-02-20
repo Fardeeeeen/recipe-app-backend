@@ -354,24 +354,34 @@ router.get('/get-search-history', async (req, res) => {
   }
 
   try {
-      // ✅ Check if user exists before querying history
+      // Check if the user exists first.
       const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
       if (userExists.rows.length === 0) {
           return res.status(404).json({ message: "User not found" });
       }
 
+      // Retrieve the search history.
       let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
-
       let searchHistory = result.rows.length > 0 ? result.rows[0].search_history : [];
 
-      if (!searchHistory) searchHistory = [];
+      // If searchHistory is a string, attempt to parse it.
+      if (typeof searchHistory === "string") {
+          try {
+              searchHistory = JSON.parse(searchHistory);
+          } catch (error) {
+              console.error("Error parsing search history:", error);
+              searchHistory = [];
+          }
+      }
 
+      console.log("Fetched search history for user_id:", user_id, ":", searchHistory);
       res.json({ user_id, search_history: searchHistory });
   } catch (error) {
       console.error("❌ Error fetching search history:", error);
       res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 
