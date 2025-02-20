@@ -7,7 +7,7 @@ console.log("🔍 Recipe Routes Loaded");
 
 // 🟢 Get All Recipes
 router.get('/', async (req, res) => {
-    console.log("🔍 GET /api/recipes request received");
+    console.log(" GET /api/recipes request received");
     try {
         const result = await db.query("SELECT * FROM recipes");
         res.json(result.rows);
@@ -468,5 +468,133 @@ router.get('/:id', async (req, res) => {
       res.status(500).json({ message: "Server error" });
   }
 });
+
+//post comments
+router.post('/:id/comment', async (req, res) => {
+  const { user_id, comment_text } = req.body;
+  const recipe_id = req.params.id;
+
+  if (!user_id || !comment_text) {
+      return res.status(400).json({ message: "User ID and comment text are required" });
+  }
+
+  try {
+      const result = await db.query(
+          "INSERT INTO comments (user_id, recipe_id, comment_text) VALUES ($1, $2, $3) RETURNING *",
+          [user_id, recipe_id, comment_text]
+      );
+      res.json(result.rows[0]);
+  } catch (error) {
+      console.error("Error adding comment:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+//get comments
+router.get('/:id/comments', async (req, res) => {
+  const recipe_id = req.params.id;
+
+  try {
+      const result = await db.query(
+          "SELECT comments.*, users.username FROM comments JOIN users ON comments.user_id = users.id WHERE recipe_id = $1 ORDER BY created_at DESC",
+          [recipe_id]
+      );
+      res.json(result.rows);
+  } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+// edit comments
+router.put('/comments/:comment_id', async (req, res) => {
+  const { user_id, comment_text } = req.body;
+  const comment_id = req.params.comment_id;
+
+  try {
+      const result = await db.query(
+          "UPDATE comments SET comment_text = $1 WHERE id = $2 AND user_id = $3 RETURNING *",
+          [comment_text, comment_id, user_id]
+      );
+
+      if (result.rowCount === 0) {
+          return res.status(403).json({ message: "Not authorized to edit this comment" });
+      }
+
+      res.json({ message: "Comment updated successfully" });
+  } catch (error) {
+      console.error("Error updating comment:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+// delete comments
+router.delete('/comments/:comment_id', async (req, res) => {
+  const { user_id } = req.body;
+  const comment_id = req.params.comment_id;
+
+  try {
+      const result = await db.query(
+          "DELETE FROM comments WHERE id = $1 AND user_id = $2 RETURNING *",
+          [comment_id, user_id]
+      );
+
+      if (result.rowCount === 0) {
+          return res.status(403).json({ message: "Not authorized to delete this comment" });
+      }
+
+      res.json({ message: "Comment deleted successfully" });
+  } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+//submit rating
+router.post('/:id/rate', async (req, res) => {
+  const { user_id, rating } = req.body;
+  const recipe_id = req.params.id;
+
+  if (!user_id || !rating) {
+      return res.status(400).json({ message: "User ID and rating are required" });
+  }
+
+  try {
+      await db.query(
+          "INSERT INTO ratings (user_id, recipe_id, rating) VALUES ($1, $2, $3) ON CONFLICT (user_id, recipe_id) DO UPDATE SET rating = EXCLUDED.rating",
+          [user_id, recipe_id, rating]
+      );
+      res.json({ message: "Rating submitted successfully" });
+  } catch (error) {
+      console.error("Error submitting rating:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+//average rating
+router.get('/:id/ratings', async (req, res) => {
+  const recipe_id = req.params.id;
+
+  try {
+      const result = await db.query(
+          "SELECT ROUND(AVG(rating), 1) AS average_rating FROM ratings WHERE recipe_id = $1",
+          [recipe_id]
+      );
+
+      res.json({ average_rating: result.rows[0].average_rating || 0 });
+  } catch (error) {
+      console.error("Error fetching ratings:", error);
+      res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+
+
+
+
 
 export default router;
