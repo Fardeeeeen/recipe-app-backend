@@ -303,11 +303,11 @@ try {
 
 // 🟢 Save Search History
 router.post('/save-search', async (req, res) => {
-  const { user_id, search_query } = req.body;
+  const { user_id, recipe } = req.body;
   console.log("Save search history request:", req.body);
   
-  if (!user_id || !search_query) {
-    return res.status(400).json({ message: "User ID and search query are required" });
+  if (!user_id || !recipe) {
+    return res.status(400).json({ message: "User ID and recipe object are required" });
   }
 
   try {
@@ -322,8 +322,8 @@ router.post('/save-search', async (req, res) => {
     let userSearches = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
     let searches = userSearches.rows[0]?.search_history || [];
     console.log("Raw search history from DB:", searches);
-
-    // If searchHistory is a string, attempt to parse it.
+    
+    // If stored as a string, parse it
     if (typeof searches === "string") {
       try {
         searches = JSON.parse(searches);
@@ -333,21 +333,21 @@ router.post('/save-search', async (req, res) => {
         searches = [];
       }
     }
-
+    
     if (!Array.isArray(searches)) {
       searches = [];
     }
-
-    // Keep only the last 3 searches
-    searches.push(search_query);
+    
+    // Add the new recipe object and limit to the last 3 entries
+    searches.push(recipe);
     if (searches.length > 3) {
       searches.shift();
     }
     console.log("🔍 Updated Search History:", searches);
-
-    // Save updated search history (stored as JSON string)
+    
+    // Update the user record with the new search history (as JSON string)
     await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
-
+    
     res.json({ message: "Search history updated", searches });
   } catch (error) {
     console.error("❌ Error saving search history:", error);
@@ -379,7 +379,7 @@ router.get('/get-search-history', async (req, res) => {
 
     let result = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
     let searchHistory = result.rows.length > 0 ? result.rows[0].search_history : [];
-
+    
     // If stored as a string, parse it
     if (typeof searchHistory === "string") {
       try {
@@ -389,7 +389,7 @@ router.get('/get-search-history', async (req, res) => {
         searchHistory = [];
       }
     }
-
+    
     console.log("Fetched search history for user_id:", user_id, ":", searchHistory);
     res.json({ user_id, search_history: searchHistory });
   } catch (error) {
@@ -397,9 +397,6 @@ router.get('/get-search-history', async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
 
 
 // 🟢 Save Favorite Recipe
