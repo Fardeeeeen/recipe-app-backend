@@ -469,20 +469,22 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-//post comments
+// POST comment
 router.post('/:id/comment', async (req, res) => {
+  console.log("Comment request body:", req.body);
   const { user_id, comment_text } = req.body;
   const recipe_id = req.params.id;
-
   if (!user_id || !comment_text) {
+      console.log("Missing user_id or comment_text");
       return res.status(400).json({ message: "User ID and comment text are required" });
   }
-
   try {
+      console.log(`Inserting comment for recipe ${recipe_id} by user ${user_id}`);
       const result = await db.query(
           "INSERT INTO comments (user_id, recipe_id, comment_text) VALUES ($1, $2, $3) RETURNING *",
           [user_id, recipe_id, comment_text]
       );
+      console.log("Comment inserted:", result.rows[0]);
       res.json(result.rows[0]);
   } catch (error) {
       console.error("Error adding comment:", error);
@@ -551,21 +553,22 @@ router.delete('/comments/:comment_id', async (req, res) => {
   }
 });
 
-
-//submit rating
+// POST rating
 router.post('/:id/rate', async (req, res) => {
+  console.log("Rating request body:", req.body);
   const { user_id, rating } = req.body;
   const recipe_id = req.params.id;
-
   if (!user_id || !rating) {
+      console.log("Missing user_id or rating");
       return res.status(400).json({ message: "User ID and rating are required" });
   }
-
   try {
+      console.log(`Inserting rating for recipe ${recipe_id} by user ${user_id} with rating ${rating}`);
       await db.query(
           "INSERT INTO ratings (user_id, recipe_id, rating) VALUES ($1, $2, $3) ON CONFLICT (user_id, recipe_id) DO UPDATE SET rating = EXCLUDED.rating",
           [user_id, recipe_id, rating]
       );
+      console.log("Rating inserted/updated successfully");
       res.json({ message: "Rating submitted successfully" });
   } catch (error) {
       console.error("Error submitting rating:", error);
