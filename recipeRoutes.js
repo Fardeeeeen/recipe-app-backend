@@ -579,24 +579,22 @@ router.delete('/comments/:comment_id', async (req, res) => {
 
 // POST rating
 router.post('/:id/rate', async (req, res) => {
-  console.log("Rating request body:", req.body);
   const { user_id, rating } = req.body;
   const recipe_id = req.params.id;
+
   if (!user_id || !rating) {
-      console.log("Missing user_id or rating");
-      return res.status(400).json({ message: "User ID and rating are required" });
+    return res.status(400).json({ message: "User ID and rating are required" });
   }
+
   try {
-      console.log(`Inserting rating for recipe ${recipe_id} by user ${user_id} with rating ${rating}`);
-      await db.query(
-          "INSERT INTO ratings (user_id, recipe_id, rating) VALUES ($1, $2, $3) ON CONFLICT (user_id, recipe_id) DO UPDATE SET rating = EXCLUDED.rating",
-          [user_id, recipe_id, rating]
-      );
-      console.log("Rating inserted/updated successfully");
-      res.json({ message: "Rating submitted successfully" });
+    await db.query(
+        "INSERT INTO ratings (user_id, recipe_id, rating) VALUES ($1, $2, $3) ON CONFLICT (user_id, recipe_id) DO UPDATE SET rating = EXCLUDED.rating",
+        [user_id, recipe_id, rating]
+    );
+    res.json({ message: "Rating submitted successfully" });
   } catch (error) {
-      console.error("Error submitting rating:", error);
-      res.status(500).json({ message: "Server error" });
+    console.error("Error submitting rating:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -606,22 +604,15 @@ router.get('/:id/ratings', async (req, res) => {
   const recipe_id = req.params.id;
 
   try {
-      const result = await db.query(
-          "SELECT ROUND(AVG(rating), 1) AS average_rating FROM ratings WHERE recipe_id = $1",
-          [recipe_id]
-      );
-
-      res.json({ average_rating: result.rows[0].average_rating || 0 });
+    const result = await db.query(
+        "SELECT ROUND(AVG(rating), 1) AS average_rating FROM ratings WHERE recipe_id = $1",
+        [recipe_id]
+    );
+    res.json({ average_rating: result.rows[0].average_rating || 0 });
   } catch (error) {
-      console.error("Error fetching ratings:", error);
-      res.status(500).json({ message: "Server error" });
+    console.error("Error fetching ratings:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
-
-
-
-
-
-
 
 export default router;
