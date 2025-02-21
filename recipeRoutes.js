@@ -1,6 +1,6 @@
 import express from 'express';
 import db from './database.js';
-import { ingredientSynonyms, complexityMap, timeKeywords, fillerWords } from './constants.js';
+import { ingredientSynonyms, complexityMap, timeKeywords, fillerWords, categories } from './constants.js';
 
 const router = express.Router();
 console.log("🔍 Recipe Routes Loaded");
@@ -34,6 +34,41 @@ router.get('/search', async (req, res) => {
   // Normalize query.
   query = query.toLowerCase().trim();
   console.log("🔍 Received search query:", query);
+
+  //categories search
+  if (categories.includes(query)) {
+    try {
+      const categoryResult = await db.query(
+        "SELECT * FROM recipes WHERE LOWER(category) = $1",
+        [query]
+      );
+      if (categoryResult.rows.length > 0) {
+        return res.json({
+          message: `Showing recipes in category: ${query}`,
+          recipes: categoryResult.rows
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error fetching category recipes:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+
+    // --- Recipe Name Search ---
+    try {
+      const nameResult = await db.query(
+        "SELECT * FROM recipes WHERE LOWER(name) ILIKE $1",
+        [`%${query}%`]
+      );
+      if (nameResult.rows.length > 0) {
+        return res.json({
+          message: `Showing recipes matching name: ${query}`,
+          recipes: nameResult.rows
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error fetching recipe by name:", error);
+    }
 
   // --- Negative Filtering for Egg ---
   let excludeEgg = false;
@@ -86,7 +121,6 @@ router.get('/search', async (req, res) => {
 
   // Remove punctuation (note: this regex doesn't remove quotes).
   query = query.replace(/[.,?!]/g, " ").replace(/\s+/g, " ").trim();
-
   let ingredientQuery = query || null;
 
  // --- Handling Multiple Ingredients ---

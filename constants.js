@@ -294,6 +294,13 @@ export const complexityMap = {
     "under 45 minute": 45, "less than 45 minute": 45, 
 };
 
+export const categories = [
+  "bar", "biscuit", "brownie", "cake", "churro", "cookie", "cream puff",
+  "crumble", "custard", "doughnut", "fudge", "macaron", "meringue", "mousse",
+  "muffin", "parfait", "pastry", "pavlova", "pie", "pudding", "soufflé", "tart",
+  "truffle", "éclair"
+];
+
   // Filler Words Array
 export const fillerWords = [
   "can", "you", "please", "find", "me", "a", "recipe", "for", "how", "to", "make",
