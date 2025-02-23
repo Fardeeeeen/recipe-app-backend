@@ -63,17 +63,18 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const userResult = await db.query("SELECT * FROM users WHERE email = $1", [email]);
     if (userResult.rows.length === 0) {
+      // Do not reveal whether the email exists
       return res.json({ message: "If that email is registered, you will receive a reset link." });
     }
     
     const user = userResult.rows[0];
     const resetToken = jwt.sign({ email: user.email }, "reset_secret_key", { expiresIn: '1h' });
-    const resetLink = `https://sandbox.smtp.mailtrap.io/reset-password?token=${resetToken}`;
+    const resetLink = `https:///reset-password?token=${resetToken}`;
     console.log("Password reset link:", resetLink);
     
     // Define email options
     const mailOptions = {
-      from: process.env.SMTP_FROM,
+      from: process.env.SMTP_FROM, 
       to: email,
       subject: "Password Reset Request",
       text: `Click the link below to reset your password: ${resetLink}`,
@@ -97,7 +98,7 @@ router.post('/reset-password', async (req, res) => {
     const decoded = jwt.verify(token, "reset_secret_key");
     const email = decoded.email;
     
-    // Validate strong password 
+    // Validate strong password on backend
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!strongPasswordRegex.test(newPassword)) {
       return res.status(400).json({ 
