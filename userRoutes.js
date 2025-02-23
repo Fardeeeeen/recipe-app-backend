@@ -70,7 +70,7 @@ router.post('/forgot-password', async (req, res) => {
     const user = userResult.rows[0];
     // Create a reset token that expires in 1 hour
     const resetToken = jwt.sign({ email: user.email }, "reset_secret_key", { expiresIn: '1h' });
-    const resetLink = `https://sandbox.smtp.mailtrap.io/reset-password?token=${resetToken}`;
+    const resetLink = `https://live.smtp.mailtrap.io/reset-password?token=${resetToken}`;
     console.log("Password reset link:", resetLink);
     
     // Define email options
