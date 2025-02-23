@@ -206,7 +206,7 @@ try {
     
     if (individualMatches.length > 0) {
       return res.json({
-        message: "We couldn't find a recipe with all the ingredients, but here are some recipes using at least one of them.",
+        message: "We don't a recipe with all the ingredients, but here are some of our best suggestions.",
         partialSolution: "We couldn't find a recipe with all the ingredients, but here are some recipes using at least one of them.",
         recipes: individualMatches
       });
