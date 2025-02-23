@@ -257,7 +257,18 @@ export const ingredientSynonyms = {
     "flour":"flours",
     "flours":"flour",
     "sugar":"sugars",
-  
+
+    //mango:
+    "mango":"mango",
+    "mango juice":"mango",  
+    "mango extract":"mango",
+    "mango zest":"mango",
+    "mango syrup":"mango",
+    "alphonso":"mango",
+    "alphonso mango":"mango",
+    "alphonso mango juice":"mango",
+    "alphonso mango extract":"mango",
+    "alphonso mango zest":"mango",
   };
 
   // Define Filter Mappings
@@ -361,7 +372,15 @@ export const fillerWords = [
     "off", "over", "under", "again", "further", "then", "once", "here", "there", "when",
     "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other",
     "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "s",
-    "t", "can", "will", "just", "don", "should", "now", 
+    "t", "can", "will", "just", "don", "should", "now", "hi", "hello", "hey", "bye",
+    "goodbye", "goodnight", "good", "morning", "afternoon", "evening", "night", "day",
+    "days", "week", "weeks", "month", "months", "year", "years", "today", "tomorrow",
+    "yesterday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+    "sunday", "january", "february", "march", "april", "may", "june", "july", "august",
+    "september", "october", "november", "december", "spring", "summer", "fall", "autumn",
+    "winter", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
+    "nov", "dec", "sun", "mon", "tue", "wed", "thu", "fri", "sat", "breakfast",
+    "brunch", "lunch", "dinner", "supper", "feast", "banquet", "buffet", "spread",
  
     "cook", "cooking", "bake", "baking", "roast", "roasting", "grill", "grilling", "fry", "frying", "steam", "steaming",
     "prepare", "preparing", "make", "making", "create", "creating", "whip", "whipping", "mix", "mixing", "stir", "stirring",
