@@ -7,142 +7,140 @@ console.log("🔍 Recipe Routes Loaded");
 
 // 🟢 Get All Recipes
 router.get('/', async (req, res) => {
-    console.log(" GET /api/recipes request received");
-    try {
-        const result = await db.query("SELECT * FROM recipes");
-        res.json(result.rows);
-    } catch (error) {
-        console.error("❌ Error fetching recipes:", error);
-        res.status(500).json({ message: "Server error" });
-    }
+  console.log(" GET /api/recipes request received");
+  try {
+      const result = await db.query("SELECT * FROM recipes");
+      res.json(result.rows);
+  } catch (error) {
+      console.error("❌ Error fetching recipes:", error);
+      res.status(500).json({ message: "Server error" });
+  }
 });
 
 // 🟢 Search Recipes
 router.get('/search', async (req, res) => {
-  let { query } = req.query;
-  console.log("query --> ", query);
-  if (!query) {
-    return res.status(400).json({ message: "Search query required" });
-  }
+let { query } = req.query;
+console.log("query --> ", query);
+if (!query) {
+  return res.status(400).json({ message: "Search query required" });
+}
 
-  // Remove extra wrapping quotes if present.
-  query = query.trim();
-  if (query.startsWith('"') && query.endsWith('"')) {
-    query = query.substring(1, query.length - 1);
-  }
+// Remove extra wrapping quotes if present.
+query = query.trim();
+if (query.startsWith('"') && query.endsWith('"')) {
+  query = query.substring(1, query.length - 1);
+}
 
-  // Normalize query.
-  query = query.toLowerCase().trim();
-  console.log("🔍 Received search query:", query);
+// Normalize query.
+query = query.toLowerCase().trim();
+console.log("🔍 Received search query:", query);
 
-  //categories search
-  if (categories.includes(query)) {
-    try {
-      const categoryResult = await db.query(
-        "SELECT * FROM recipes WHERE LOWER(category) = $1",
-        [query]
-      );
-      if (categoryResult.rows.length > 0) {
-        return res.json({
-          message: `Showing recipes in category: ${query}`,
-          recipes: categoryResult.rows
-        });
-      }
-    } catch (error) {
-      console.error("❌ Error fetching category recipes:", error);
-      return res.status(500).json({ message: "Server error" });
+// Categories search
+if (categories.includes(query)) {
+  try {
+    const categoryResult = await db.query(
+      "SELECT * FROM recipes WHERE LOWER(category) = $1",
+      [query]
+    );
+    if (categoryResult.rows.length > 0) {
+      return res.json({
+        message: "Here are the best Recipes for you",
+        recipes: categoryResult.rows
+      });
     }
+  } catch (error) {
+    console.error("❌ Error fetching category recipes:", error);
+    return res.status(500).json({ message: "Server error" });
   }
+}
 
-    // --- Recipe Name Search ---
-    try {
-      const nameResult = await db.query(
-        "SELECT * FROM recipes WHERE LOWER(name) ILIKE $1",
-        [`%${query}%`]
-      );
-      if (nameResult.rows.length > 0) {
-        return res.json({
-          message: `Showing recipes matching name: ${query}`,
-          recipes: nameResult.rows
-        });
-      }
-    } catch (error) {
-      console.error("❌ Error fetching recipe by name:", error);
-    }
-
-  // --- Negative Filtering for Egg ---
-  let excludeEgg = false;
-  const negativeEggPattern = /\b(eggless|without egg|no egg|doesnt contain egg|doesn't contain egg)\b/gi;
-  if (negativeEggPattern.test(query)) {
-    excludeEgg = true;
-    query = query.replace(negativeEggPattern, "").trim();
-    //console.log("🔍 Excluding recipes that contain eggs");
+// --- Recipe Name Search ---
+try {
+  const nameResult = await db.query(
+    "SELECT * FROM recipes WHERE LOWER(name) ILIKE $1",
+    [`%${query}%`]
+  );
+  if (nameResult.rows.length > 0) {
+    return res.json({
+      message: "Here are the best Recipes for you",
+      recipes: nameResult.rows
+    });
   }
+} catch (error) {
+  console.error("❌ Error fetching recipe by name:", error);
+}
 
-  // Replace ingredient synonyms.
-  for (let key in ingredientSynonyms) {
-    const regex = new RegExp(`\\b${key}\\b`, "gi");
-    query = query.replace(regex, ingredientSynonyms[key]);
+// --- Negative Filtering for Egg ---
+let excludeEgg = false;
+const negativeEggPattern = /\b(eggless|without egg|no egg|doesnt contain egg|doesn't contain egg)\b/gi;
+if (negativeEggPattern.test(query)) {
+  excludeEgg = true;
+  query = query.replace(negativeEggPattern, "").trim();
+}
+
+// Replace ingredient synonyms.
+for (let key in ingredientSynonyms) {
+  const regex = new RegExp(`\\b${key}\\b`, "gi");
+  query = query.replace(regex, ingredientSynonyms[key]);
+}
+
+// --- Extraction Process ---
+let extractedComplexity = null;
+let cookingTime = null;
+
+// Extract complexity.
+for (const key in complexityMap) {
+  if (new RegExp(`\\b${key}\\b`, "i").test(query)) {
+    extractedComplexity = complexityMap[key];
+    query = query.replace(new RegExp(`\\b${key}\\b`, "i"), "").trim();
+    break;
   }
+}
 
-  // --- Extraction Process ---
-  let extractedComplexity = null;
-  let cookingTime = null;
-
-  // Extract complexity.
-  for (const key in complexityMap) {
-    if (new RegExp(`\\b${key}\\b`, "i").test(query)) {
-      extractedComplexity = complexityMap[key];
-      query = query.replace(new RegExp(`\\b${key}\\b`, "i"), "").trim();
-      break;
-    }
+// Extract cooking time from known phrases.
+for (const phrase in timeKeywords) {
+  if (new RegExp(`\\b${phrase}\\b`, "i").test(query)) {
+    cookingTime = timeKeywords[phrase];
+    query = query.replace(new RegExp(`\\b${phrase}\\b`, "i"), "").trim();
+    break;
   }
+}
 
-  // Extract cooking time from known phrases.
-  for (const phrase in timeKeywords) {
-    if (new RegExp(`\\b${phrase}\\b`, "i").test(query)) {
-      cookingTime = timeKeywords[phrase];
-      query = query.replace(new RegExp(`\\b${phrase}\\b`, "i"), "").trim();
-      break;
-    }
+// Look for direct numbers if no time phrase found.
+const numMatch = query.match(/\b\d+\b/);
+if (numMatch && cookingTime === null) {
+  cookingTime = parseInt(numMatch[0]);
+  query = query.replace(new RegExp(`\\b${numMatch[0]}\\b`, "i"), "").trim();
+}
+
+// Remove filler words.
+fillerWords.forEach(word => {
+  query = query.replace(new RegExp(`\\b${word}\\b`, "gi"), "").trim();
+});
+
+// Remove punctuation.
+query = query.replace(/[.,?!]/g, " ").replace(/\s+/g, " ").trim();
+let ingredientQuery = query || null;
+
+// --- Handling Multiple Ingredients ---
+let ingredientsArray = [];
+if (ingredientQuery) {
+  if (ingredientQuery.includes(',')) {
+    ingredientsArray = ingredientQuery.split(',')
+      .map(item => item.trim())
+      .filter(item => item && !fillerWords.includes(item.toLowerCase()));
+  } else {
+    ingredientsArray = ingredientQuery.split(/\s+/)
+      .filter(item => item && !fillerWords.includes(item.toLowerCase()));
   }
-
-  // Look for direct numbers if no time phrase found.
-  const numMatch = query.match(/\b\d+\b/);
-  if (numMatch && cookingTime === null) {
-    cookingTime = parseInt(numMatch[0]);
-    query = query.replace(new RegExp(`\\b${numMatch[0]}\\b`, "i"), "").trim();
-  }
-
-  // Remove filler words.
-  fillerWords.forEach(word => {
-    query = query.replace(new RegExp(`\\b${word}\\b`, "gi"), "").trim();
-  });
-
-  // Remove punctuation (note: this regex doesn't remove quotes).
-  query = query.replace(/[.,?!]/g, " ").replace(/\s+/g, " ").trim();
-  let ingredientQuery = query || null;
-
- // --- Handling Multiple Ingredients ---
- let ingredientsArray = [];
- if (ingredientQuery) {
-   if (ingredientQuery.includes(',')) {
-     ingredientsArray = ingredientQuery.split(',')
-       .map(item => item.trim())
-       // Remove any filler words that might have slipped through
-       .filter(item => item && !fillerWords.includes(item.toLowerCase()));
-   } else {
-     ingredientsArray = ingredientQuery.split(/\s+/)
-       .filter(item => item && !fillerWords.includes(item.toLowerCase()));
-   }
- }
+}
 
 // Check if there are no ingredients after processing
 if (ingredientsArray.length === 0) {
   try {
     const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 18");
     return res.json({
-      message: "No ingredients provided, showing random recipes instead.",
+      message: "We don't have recipes for those ingredients, but here are some of our best suggestions!",
       recipes: randomResult.rows
     });
   } catch (error) {
@@ -164,12 +162,11 @@ try {
   if (excludeEgg) {
     sqlAll += " AND ingredients NOT ILIKE '%egg%'";
   }
-  //console.log("🔍 SQL Query (Exact Match):", sqlAll, valuesAll);
   let ingredientResult = await db.query(sqlAll, valuesAll);
 
   // Check combinations of ingredients if no exact match
   if (ingredientResult.rows.length === 0) {
-    // finding recipes with at least two matching ingredients together
+    // Try combination queries (at least two matching ingredients together)
     let combinationQueries = [];
     for (let i = 0; i < ingredientsArray.length; i++) {
       for (let j = i + 1; j < ingredientsArray.length; j++) {
@@ -182,22 +179,20 @@ try {
       }
     }
     
-    // Execute all two-ingredient queries in parallel
     let combinationResults = await Promise.all(combinationQueries);
     let combinationMatches = combinationResults.flatMap(result => result.rows);
     
-    // If combinations found, return those results
     if (combinationMatches.length > 0) {
       return res.json({
-        message: "No exact match found for all ingredients, but recipes with some combinations exist.",
-        partialSolution: "Here are recipes that match combinations of your requested ingredients:",
+        message: "We don't have an exact match, but here are some of our best recipes based on available ingredients.",
+        partialSolution: "We don't have an exact match, but here are some of our best recipes based on available ingredients.",
         recipes: combinationMatches
       });
     }
     
     console.log("⚠️ No combinations found. Proceeding to individual ingredient searches...");
     
-    // Fetching individual ingredient matches
+    // Fetch individual ingredient matches.
     let singleQueries = ingredientsArray.map(ing => {
       let sql = "SELECT * FROM recipes WHERE ingredients ILIKE $1";
       if (excludeEgg) {
@@ -206,24 +201,22 @@ try {
       return db.query(sql, [`%${ing}%`]);
     });
     
-    // Execute all individual ingredient queries in parallel
     let singleResults = await Promise.all(singleQueries);
     let individualMatches = singleResults.flatMap(result => result.rows);
     
-    // If individual matches found, return those results
     if (individualMatches.length > 0) {
       return res.json({
-        message: "No exact match found for the combination of ingredients.",
-        partialSolution: "Here are some recipes that match individual ingredients:",
+        message: "We couldn't find a recipe with all the ingredients, but here are some recipes using at least one of them.",
+        partialSolution: "We couldn't find a recipe with all the ingredients, but here are some recipes using at least one of them.",
         recipes: individualMatches
       });
     }
     
-    // If no matches at all, query random recipes instead of returning an empty list
+    // If no matches at all, return random recipes.
     try {
       const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 18");
       return res.json({
-        message: "No recipes found for the given ingredients, showing random recipes instead.",
+        message: "We don't have recipes for those ingredients, but here are some of our best suggestions!",
         recipes: randomResult.rows
       });
     } catch (error) {
@@ -234,7 +227,7 @@ try {
   
   console.log("✅ Found recipes with ingredient(s):", ingredientResult.rows.length);
   
-  // Hierarchical Search: Filter recipes based on complexity and cooking time
+  // Hierarchical Search: Further filter recipes based on complexity and cooking time.
   let finalResult = [];
   let complexityFiltered = [];
   let timeFiltered = [];
@@ -243,7 +236,7 @@ try {
   
   const ingredientRecipes = ingredientResult.rows;
   
-  // Filter by complexity
+  // Filter by complexity.
   if (extractedComplexity) {
     complexityFiltered = ingredientRecipes.filter(recipe =>
       recipe.complexity.toLowerCase() === extractedComplexity
@@ -256,14 +249,14 @@ try {
         if (timeFiltered.length > 0) {
           finalResult = timeFiltered;
           output = {
-            message: "Exact match found: ingredient, complexity, and cooking time.",
+            message: "Here are the best Recipes for you",
             recipes: finalResult
           };
           return res.json(output);
         } else {
           finalResult = complexityFiltered.sort((a, b) => a.cooking_time - b.cooking_time);
           output = {
-            message: "Alternative solution: ingredient and complexity matched, but cooking time did not exactly match.",
+            message: "We couldn't find a recipe with all the ingredients, but here are some recipes using at least one of them.",
             recipes: finalResult
           };
           return res.json(output);
@@ -271,7 +264,7 @@ try {
       } else {
         finalResult = complexityFiltered;
         output = {
-          message: "Match found based on ingredient and complexity.",
+          message: "Here are the best Recipes for you",
           recipes: finalResult
         };
         return res.json(output);
@@ -285,7 +278,7 @@ try {
         if (timeFiltered.length > 0) {
           finalResult = timeFiltered;
           output = {
-            message: "Alternative solution: ingredient and cooking time match (no complexity match).",
+            message: "We couldn't find a recipe with all the ingredients, but here are some recipes using at least one of them.",
             recipes: finalResult
           };
           return res.json(output);
@@ -293,7 +286,7 @@ try {
       }
       ingredientOnlyFiltered = ingredientRecipes;
       output = {
-        message: "Match found based on ingredient only (no complexity or cooking time match).",
+        message: "Here are the best Recipes for you",
         recipes: ingredientOnlyFiltered
       };
       return res.json(output);
@@ -307,14 +300,14 @@ try {
       if (timeFiltered.length > 0) {
         finalResult = timeFiltered;
         output = {
-          message: "Match found based on ingredient and cooking time.",
+          message: "Here are the best Recipes for you",
           recipes: finalResult
         };
         return res.json(output);
       } else {
         ingredientOnlyFiltered = ingredientRecipes;
         output = {
-          message: "Match found based on ingredient only (cooking time did not match).",
+          message: "We couldn't find a recipe with all the ingredients, but here are some recipes using at least one of them.",
           recipes: ingredientOnlyFiltered
         };
         return res.json(output);
@@ -322,7 +315,7 @@ try {
     }
     ingredientOnlyFiltered = ingredientRecipes;
     output = {
-      message: "Match found based on ingredient only.",
+      message: "Here are the best Recipes for you",
       recipes: ingredientOnlyFiltered
     };
     return res.json(output);
@@ -337,57 +330,58 @@ try {
 
 // 🟢 Save Search History
 router.post('/save-search', async (req, res) => {
-  const { user_id, recipe } = req.body;
-  console.log("Save search history request:", req.body);
-  
-  if (!user_id || !recipe) {
-    return res.status(400).json({ message: "User ID and recipe object are required" });
+const { user_id, recipe } = req.body;
+console.log("Save search history request:", req.body);
+
+if (!user_id || !recipe) {
+  return res.status(400).json({ message: "User ID and recipe object are required" });
+}
+
+try {
+  // Check if user exists first.
+  const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
+  if (userExists.rows.length === 0) {
+    console.log("User not found for user_id:", user_id);
+    return res.status(404).json({ message: "User not found" });
   }
 
-  try {
-    // Check if user exists first
-    const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
-    if (userExists.rows.length === 0) {
-      console.log("User not found for user_id:", user_id);
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Fetch current search history
-    let userSearches = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
-    let searches = userSearches.rows[0]?.search_history || [];
-    console.log("Raw search history from DB:", searches);
-    
-    // If stored as a string, parse it
-    if (typeof searches === "string") {
-      try {
-        searches = JSON.parse(searches);
-        console.log("Parsed search history:", searches);
-      } catch (err) {
-        console.error("Error parsing existing search history:", err);
-        searches = [];
-      }
-    }
-    
-    if (!Array.isArray(searches)) {
+  // Fetch current search history.
+  let userSearches = await db.query("SELECT search_history FROM users WHERE id = $1", [user_id]);
+  let searches = userSearches.rows[0]?.search_history || [];
+  console.log("Raw search history from DB:", searches);
+  
+  // If stored as a string, parse it.
+  if (typeof searches === "string") {
+    try {
+      searches = JSON.parse(searches);
+      console.log("Parsed search history:", searches);
+    } catch (err) {
+      console.error("Error parsing existing search history:", err);
       searches = [];
     }
-    
-    // Add the new recipe object and limit to the last 3 entries
-    searches.push(recipe);
-    if (searches.length > 3) {
-      searches.shift();
-    }
-    console.log("🔍 Updated Search History:", searches);
-    
-    // Update the user record with the new search history (as JSON string)
-    await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
-    
-    res.json({ message: "Search history updated", searches });
-  } catch (error) {
-    console.error("❌ Error saving search history:", error);
-    res.status(500).json({ message: "Server error" });
   }
+  
+  if (!Array.isArray(searches)) {
+    searches = [];
+  }
+  
+  // Add the new recipe object and limit to the last 3 entries.
+  searches.push(recipe);
+  if (searches.length > 3) {
+    searches.shift();
+  }
+  console.log("🔍 Updated Search History:", searches);
+  
+  // Update the user record with the new search history.
+  await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
+  
+  res.json({ message: "Search history updated", searches });
+} catch (error) {
+  console.error("❌ Error saving search history:", error);
+  res.status(500).json({ message: "Server error" });
+}
 });
+
 
 // GET Search History
 router.get('/get-search-history', async (req, res) => {
