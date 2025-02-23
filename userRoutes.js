@@ -13,7 +13,7 @@ const router = express.Router();
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
-  secure: Number(process.env.SMTP_PORT) === 465, // true for port 465, false otherwise
+  secure: Number(process.env.SMTP_PORT) === 465, 
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -70,12 +70,12 @@ router.post('/forgot-password', async (req, res) => {
     const user = userResult.rows[0];
     // Create a reset token that expires in 1 hour
     const resetToken = jwt.sign({ email: user.email }, "reset_secret_key", { expiresIn: '1h' });
-    const resetLink = `https://yourdomain.com/reset-password?token=${resetToken}`;
+    const resetLink = `https://sandbox.smtp.mailtrap.io/reset-password?token=${resetToken}`;
     console.log("Password reset link:", resetLink);
     
     // Define email options
     const mailOptions = {
-      from: process.env.SMTP_FROM, // e.g., '"Your App" <no-reply@yourdomain.com>'
+      from: process.env.SMTP_FROM, 
       to: email,
       subject: "Password Reset Request",
       text: `Click the link below to reset your password: ${resetLink}`,
