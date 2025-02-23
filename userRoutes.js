@@ -63,12 +63,10 @@ router.post('/forgot-password', async (req, res) => {
   try {
     const userResult = await db.query("SELECT * FROM users WHERE email = $1", [email]);
     if (userResult.rows.length === 0) {
-      // Do not reveal whether the email exists
       return res.json({ message: "If that email is registered, you will receive a reset link." });
     }
     
     const user = userResult.rows[0];
-    // Create a reset token that expires in 1 hour
     const resetToken = jwt.sign({ email: user.email }, "reset_secret_key", { expiresIn: '1h' });
     const resetLink = `https://live.smtp.mailtrap.io/reset-password?token=${resetToken}`;
     console.log("Password reset link:", resetLink);
@@ -82,8 +80,9 @@ router.post('/forgot-password', async (req, res) => {
       html: `<p>Click the link below to reset your password:</p><a href="${resetLink}">${resetLink}</a>`
     };
     
-    // Send the email
-    await transporter.sendMail(mailOptions);
+    // Send the email and log the result
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent:", info);
     
     res.json({ message: "If that email is registered, you will receive a reset link." });
   } catch (error) {
