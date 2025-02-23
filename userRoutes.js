@@ -9,7 +9,7 @@ dotenv.config();
 
 const router = express.Router();
 
-// Create a transporter using your Mailtrap (or other SMTP) credentials.
+// transporter using your Mailtrap (or other SMTP) credentials.
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT),
@@ -20,16 +20,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Optional GET route for debugging (not for production)
-router.get('/forgot-password', (req, res) => {
-  res.send("This endpoint accepts POST requests only. Please send a POST request with your email to receive a reset link.");
-});
-
 // 🟢 User Signup
 router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
 
-  // Validate password strength
+  // Validate password strength (minimum 8 characters, one uppercase, one lowercase, one number, one special character)
   const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
   if (!strongPasswordRegex.test(password)) {
     return res.status(400).json({ 
@@ -73,21 +68,20 @@ router.post('/forgot-password', async (req, res) => {
     
     const user = userResult.rows[0];
     const resetToken = jwt.sign({ email: user.email }, "reset_secret_key", { expiresIn: '1h' });
-    const resetLink = `https://live.smtp.mailtrap.io/reset-password?token=${resetToken}`;
+    const resetLink = `https://sandbox.smtp.mailtrap.io/reset-password?token=${resetToken}`;
     console.log("Password reset link:", resetLink);
     
     // Define email options
     const mailOptions = {
-      from: process.env.SMTP_FROM, 
+      from: process.env.SMTP_FROM,
       to: email,
       subject: "Password Reset Request",
       text: `Click the link below to reset your password: ${resetLink}`,
       html: `<p>Click the link below to reset your password:</p><a href="${resetLink}">${resetLink}</a>`
     };
     
-    // Send the email and log the result for debugging
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent:", info);
+    // Send the email
+    await transporter.sendMail(mailOptions);
     
     res.json({ message: "If that email is registered, you will receive a reset link." });
   } catch (error) {
