@@ -73,7 +73,7 @@ router.post('/forgot-password', async (req, res) => {
     
     const user = userResult.rows[0];
     const resetToken = jwt.sign({ email: user.email }, "reset_secret_key", { expiresIn: '1h' });
-    const resetLink = `https://yourdomain.com/reset-password?token=${resetToken}`;
+    const resetLink = `https://live.smtp.mailtrap.ioreset-password?token=${resetToken}`;
     console.log("Password reset link:", resetLink);
     
     const mailOptions = {
