@@ -327,7 +327,7 @@ router.post('/save-search', async (req, res) => {
       searches = [];
     }
     searches.push(recipe);
-    if (searches.length > 3) {
+    if (searches.length > 4) {
       searches.shift();
     }
     await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
