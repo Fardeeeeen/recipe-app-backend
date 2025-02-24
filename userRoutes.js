@@ -71,7 +71,6 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     const userResult = await db.query("SELECT * FROM users WHERE email = $1", [email]);
     if (userResult.rows.length === 0) {
-      // Do not reveal whether the email exists.
       return res.json({ message: "If that email is registered, you will receive a reset link." });
     }
     
