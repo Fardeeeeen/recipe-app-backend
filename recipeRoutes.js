@@ -66,7 +66,7 @@ router.get('/search', async (req, res) => {
     console.error("Error fetching recipe by name:", error);
   }
 
-  // Negative Filtering for Egg
+  // --- Negative Filtering for Egg ---
   let excludeEgg = false;
   const negativeEggPattern = /\b(eggless|without egg|no egg|doesnt contain egg|doesn't contain egg)\b/gi;
   if (negativeEggPattern.test(query)) {
@@ -80,9 +80,10 @@ router.get('/search', async (req, res) => {
     query = query.replace(regex, ingredientSynonyms[key]);
   }
 
-  // Extraction Process for complexity and cooking time.
+  // --- Extraction Process for complexity and cooking time ---
   let extractedComplexity = null;
   let cookingTime = null;
+
   for (const key in complexityMap) {
     if (new RegExp(`\\b${key}\\b`, "i").test(query)) {
       extractedComplexity = complexityMap[key];
@@ -110,7 +111,7 @@ router.get('/search', async (req, res) => {
   query = query.replace(/[.,?!]/g, " ").replace(/\s+/g, " ").trim();
   let ingredientQuery = query || null;
 
-  // Handling Multiple Ingredients.
+  // --- Handling Multiple Ingredients ---
   let ingredientsArray = [];
   if (ingredientQuery) {
     if (ingredientQuery.includes(',')) {
@@ -123,7 +124,36 @@ router.get('/search', async (req, res) => {
     }
   }
 
-  // If no ingredients after processing, return random recipes.
+  // If no ingredients remain but a time or complexity filter was provided, query by those filters.
+  if (ingredientsArray.length === 0 && (cookingTime !== null || extractedComplexity)) {
+    let conditions = [];
+    let values = [];
+    let i = 1;
+    if (cookingTime !== null) {
+      conditions.push(`cooking_time <= $${i}`);
+      values.push(cookingTime);
+      i++;
+    }
+    if (extractedComplexity) {
+      conditions.push(`LOWER(complexity) = $${i}`);
+      values.push(extractedComplexity.toLowerCase());
+      i++;
+    }
+    try {
+      const filteredResult = await db.query(`SELECT * FROM recipes WHERE ${conditions.join(" AND ")}`, values);
+      if (filteredResult.rows.length > 0) {
+        return res.json({
+          message: "Here are the best Recipes for you",
+          recipes: filteredResult.rows
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching recipes by time/complexity:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+
+  // If no ingredients extracted, return random recipes.
   if (ingredientsArray.length === 0) {
     try {
       const randomResult = await db.query("SELECT * FROM recipes ORDER BY RANDOM() LIMIT 18");
@@ -138,7 +168,7 @@ router.get('/search', async (req, res) => {
   }
 
   try {
-    // Try exact match (all ingredients together).
+    // Try exact match (all ingredients together)
     let sqlAll = "SELECT * FROM recipes WHERE ";
     let valuesAll = [];
     ingredientsArray.forEach((ing, index) => {
@@ -151,7 +181,7 @@ router.get('/search', async (req, res) => {
     }
     let ingredientResult = await db.query(sqlAll, valuesAll);
 
-    // If no exact match, try combinations.
+    // If no exact match, try combination queries.
     if (ingredientResult.rows.length === 0) {
       let combinationQueries = [];
       for (let i = 0; i < ingredientsArray.length; i++) {
@@ -299,6 +329,7 @@ router.get('/search', async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 // 🟢 Save Search History
