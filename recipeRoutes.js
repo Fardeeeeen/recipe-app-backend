@@ -357,9 +357,17 @@ router.post('/save-search', async (req, res) => {
     if (!Array.isArray(searches)) {
       searches = [];
     }
-    searches.push(recipe);
+
+    // Check if the recipe already exists in the search history by its unique id.
+    const duplicate = searches.find((r) => r.id === recipe.id);
+    if (duplicate) {
+      return res.json({ message: "Search already exists", searches });
+    }
+
+    // Add the new search at the beginning of the array
+    searches.unshift(recipe);
     if (searches.length > 4) {
-      searches.shift();
+      searches.pop();
     }
     await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
     res.json({ message: "Search history updated", searches });
@@ -368,6 +376,8 @@ router.post('/save-search', async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+
 
 
 // GET Search History
@@ -411,24 +421,41 @@ router.post('/save-favorite', async (req, res) => {
   }
 
   try {
+    // Verify user exists.
     const userExists = await db.query("SELECT id FROM users WHERE id = $1", [user_id]);
     if (userExists.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
+    // Verify recipe exists.
     const recipeExists = await db.query("SELECT id FROM recipes WHERE id = $1", [recipe_id]);
     if (recipeExists.rows.length === 0) {
       return res.status(404).json({ message: "Recipe not found" });
     }
-    const result = await db.query(
-      "INSERT INTO favorites (user_id, recipe_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *",
+    
+    // Check if the favorite already exists.
+    const favoriteCheck = await db.query(
+      "SELECT * FROM favorites WHERE user_id = $1 AND recipe_id = $2",
       [user_id, recipe_id]
     );
-    if (result.rowCount === 0) {
-      return res.status(400).json({ message: "Recipe already favorited" });
+    
+    if (favoriteCheck.rows.length > 0) {
+      // If already favorited, remove it.
+      await db.query(
+        "DELETE FROM favorites WHERE user_id = $1 AND recipe_id = $2",
+        [user_id, recipe_id]
+      );
+      return res.json({ message: "Recipe removed from favorites!" });
+    } else {
+      // Otherwise, add it to favorites.
+      const result = await db.query(
+        "INSERT INTO favorites (user_id, recipe_id) VALUES ($1, $2) RETURNING *",
+        [user_id, recipe_id]
+      );
+      return res.json({ message: "Recipe saved to favorites!", favorite: result.rows[0] });
     }
-    res.json({ message: "Recipe saved to favorites!" });
+    
   } catch (error) {
-    console.error("Error saving favorite:", error);
+    console.error("Error toggling favorite:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
