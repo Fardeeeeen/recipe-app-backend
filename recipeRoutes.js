@@ -358,17 +358,19 @@ router.post('/save-search', async (req, res) => {
       searches = [];
     }
 
-    // Check if the recipe already exists in the search history by its unique id.
-    const duplicate = searches.find((r) => r.id === recipe.id);
-    if (duplicate) {
-      return res.json({ message: "Search already exists", searches });
+    // Check if the recipe already exists in the search history.
+    const existingIndex = searches.findIndex((r) => r.id === recipe.id);
+    if (existingIndex !== -1) {
+      // Remove the recipe from its current position.
+      searches.splice(existingIndex, 1);
     }
 
-    // Add the new search at the beginning of the array
+    // Add the recipe at the beginning.
     searches.unshift(recipe);
     if (searches.length > 4) {
       searches.pop();
     }
+
     await db.query("UPDATE users SET search_history = $1 WHERE id = $2", [JSON.stringify(searches), user_id]);
     res.json({ message: "Search history updated", searches });
   } catch (error) {
@@ -376,6 +378,7 @@ router.post('/save-search', async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 
 
