@@ -380,9 +380,6 @@ router.post('/save-search', async (req, res) => {
 });
 
 
-
-
-
 // GET Search History
 router.get('/get-search-history', async (req, res) => {
   let { user_id } = req.query;
